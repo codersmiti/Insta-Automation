@@ -1,10 +1,16 @@
 import dotenv from "dotenv";
+import path from "path";
+
+// Always load .env from the project root (not relative to __dirname)
+dotenv.config({ path: path.join(process.cwd(), ".env") });
+console.log("ENV seen in index.ts:", !!process.env.IG_USERNAME, !!process.env.IG_PASSWORD);
+
 import jwt from 'jsonwebtoken';
 import { Request } from 'express';
-dotenv.config();
 
-export const IGusername: string = process.env.IGusername || "default_IGusername";
-export const IGpassword: string = process.env.IGpassword || "default_IGpassword";
+
+export const IGusername = process.env.IG_USERNAME || "";
+export const IGpassword = process.env.IG_PASSWORD || "";
 export const Xusername: string = process.env.Xusername || "default_Xusername";
 export const Xpassword: string = process.env.Xpassword || "default_Xpassword";
 

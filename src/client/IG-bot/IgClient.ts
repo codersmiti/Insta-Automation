@@ -12,6 +12,9 @@ import { getInstagramCommentSchema } from "../../Agent/schema";
 import readline from "readline";
 import fs from "fs/promises";
 import { getShouldExitInteractions } from '../../api/agent';
+import dotenv from "dotenv";
+import path from "path";
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 // Add stealth plugin to puppeteer
 puppeteerExtra.use(StealthPlugin());
@@ -31,8 +34,8 @@ export class IgClient {
     private password: string;
 
     constructor(username?: string, password?: string) {
-        this.username = username || '';
-        this.password = password || '';
+    this.username = username || process.env.IG_USERNAME || '';
+    this.password = password || process.env.IG_PASSWORD || '';
     }
 
     async init() {
@@ -195,15 +198,50 @@ export class IgClient {
             await this.handleNotificationPopup();
 
             if (mediaPath) {
-                const fileInput = await this.page.$('input[type="file"]');
+                console.log(`📤 Attempting to upload image in DM: ${mediaPath}`);
+
+                // Focus DM input to ensure IG knows we're in a chat
+                try {
+                    const dmInput = await this.page.$('textarea[placeholder="Message..."], div[role="textbox"]');
+                    if (dmInput) {
+                        await dmInput.click();
+                        await delay(1000);
+                        console.log("💬 Focused DM input before uploading image");
+                    }
+                } catch (e) {
+                    console.warn("⚠️ Could not focus DM input before uploading image", e);
+                }
+
+                // Upload file *after* focusing input
+                const fileInput = await this.page.$('form input[type="file"]');
                 if (fileInput) {
                     await fileInput.uploadFile(mediaPath);
-                    await this.handleNotificationPopup();
-                    await delay(2000); // wait for upload
+                    console.log("🖼 Image uploaded, waiting for preview inside DM...");
+
+                    // Wait for small image thumbnail preview inside DM chat
+                    try {
+                        await this.page.waitForSelector('div[role="dialog"] img[src^="blob:"]', { timeout: 10000 });
+                        console.log("✅ DM image preview detected!");
+                    } catch {
+                        console.warn("⚠️ No DM preview detected, but continuing...");
+                    }
+
+                    // Find and click "Send" inside DM dialog
+                    const sendButton = await this.page.$x("//div[@role='dialog']//button//div[text()='Send']/..");
+                    if (sendButton.length > 0) {
+                        await sendButton[0].click();
+                        await delay(2000);
+                        console.log("📨 Sent image in DM!");
+                    } else {
+                        console.warn("⚠️ Send button not found in DM modal.");
+                    }
                 } else {
-                    logger.warn("File input for media not found.");
+                    logger.warn("File input for DM media not found.");
                 }
+
+                await delay(2000);
             }
+
 
             const messageInputSelectors = ['textarea[placeholder="Message..."]', 'div[role="textbox"]', 'div[contenteditable="true"]', 'textarea[aria-label="Message"]'];
             let messageInput: puppeteer.ElementHandle<Element> | null = null;

@@ -1,6 +1,9 @@
 import { IgApiClient, MediaRepositoryConfigureResponseRootObject } from 'instagram-private-api';
 import { get } from 'request-promise';
 import { CronJob } from 'cron';
+import dotenv from "dotenv";
+import path from "path";
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 interface IInstagramClient {
     username: string;
